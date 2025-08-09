@@ -76,10 +76,10 @@ For Software:
 
 #### Screenshots
 
-![Screenshot1](screenshots/typing_analysis.png)
+![Screenshot1](/v1.png)
 **Caption**: The main typing analysis screen where users furiously mash keys while our "AI" judges their soul
 
-![Screenshot2](screenshots/personality_result.png)
+![Screenshot2](/v2.png)
 **Caption**: Results page showing you're a "Midnight Snack Typer" - a completely scientific classification
 
 ![Screenshot3](screenshots/comparison_chart.png)
