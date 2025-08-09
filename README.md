@@ -17,11 +17,12 @@ A revolutionary typing classifier that analyzes your keyboard mashing patterns t
 
 ### The Problem (that doesn't exist)
 
-Ever wondered why your typing sounds different when you're angry vs when you're happy? Neither have we! But we solved it anyway. The world desperately needed a way to classify humans based on their completely meaningless typing patterns and keyboard abuse habits.
+yes , keyboard exists , lets forget that fact of a minute , humanity cant sit waiting
+they have to communicate , they have to program . not hand signs , body postures itself ...!
 
 ### The Solution (that nobody asked for)
 
-SAPIENTYPE uses advanced AI (actually just random number generators and if-statements) to analyze your typing rhythm, force, and pattern to categorize you into one of 12 completely made-up human archetypes. Because apparently your QWERTY skills define your entire personality!
+SAPIENTYPE uses advanced AI (actually just random python libraries and opencv and if-statements) to analyze your body posture, force, and pattern to categorize you into one of 26 english alphabets. Because apparently your QWERTY skills define your entire personality!
 
 ## Technical Details
 
@@ -82,8 +83,6 @@ For Software:
 ![Screenshot2](/v2.png)
 **Caption**: Results page showing you're a "Midnight Snack Typer" - a completely scientific classification
 
-![Screenshot3](screenshots/comparison_chart.png)
-**Caption**: Comparison with other users because everything needs to be competitive these days
 
 #### Diagrams
 
@@ -113,24 +112,7 @@ For Software:
   - Designed the results visualization (made graphs look scientific)
   - Tested the app extensively by typing angry emails to himself
 
-## The 12 SAPIENTYPE Classifications
-
-1. **Caffeinated Coder** - Types in bursts, lots of backspaces
-2. **Angry Email Writer** - Heavy keystrokes, aggressive spacing
-3. **Password Forgetter** - Hesitant typing with long pauses
-4. **Hunt & Peck Survivor** - Slow but determined
-5. **Midnight Snack Typer** - Inconsistent rhythm (probably eating)
-6. **Meeting Multitasker** - Random pauses (checking phone)
-7. **Existential Crisis Typist** - Types, deletes, types again
-8. **Speed Demon** - Fast but chaotic
-9. **Perfectionist** - Many corrections, precise timing
-10. **Procrastination Expert** - Starts strong, gradually slows down
-11. **Social Media Scroller** - Short bursts, distracted patterns
-12. **The Overthinker** - Long pauses between every word
 
 ---
 
 Made with ❤️ and questionable life choices at TinkerHub Useless Projects 
-
-![Static Badge](https://img.shields.io/badge/TinkerHub-24?color=%23000000&link=https%3A%2F%2Fwww.tinkerhub.org%2F)
-![Static Badge](https://img.shields.io/badge/UselessProjects--25-25?link=https%3A%2F%2Fwww.tinkerhub.org%2Fevents%2FQ2Q1TQKX6Q%2FUseless%2520Projects)
