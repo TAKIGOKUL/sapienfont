@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Moon, Sun, User, Activity, WifiOff, Loader, XCircle, Bot } from 'lucide-react';
 
 // --- Type Definitions ---
-type AppStatus = 'INITIALIZING' | 'NO_CAMERA' | 'READY' | 'DETECTING' | 'ERROR';
+type AppStatus = 'INITIALIZING' | 'NO_CAMERA' | 'READY' | 'HOLDING' | 'DETECTING' | 'ERROR';
 interface Message { id: number; text: string; sender: 'user' | 'ai'; }
 
 // --- Main App Component ---
@@ -10,21 +10,24 @@ export default function App() {
   // --- State Management ---
   const [status, setStatus] = useState<AppStatus>('INITIALIZING');
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [messages, setMessages] = useState<Message[]>([{ id: 1, text: "Welcome! Show a hand sign for an English letter (A-Z) to the camera.", sender: 'ai' }]);
+  const [messages, setMessages] = useState<Message[]>([{ id: 1, text: "Welcome! Hold a hand sign steady in front of the camera to type.", sender: 'ai' }]);
   const [detectedLetter, setDetectedLetter] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState(0);
   const [typedText, setTypedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [holdProgress, setHoldProgress] = useState(0);
 
   // --- Refs ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const detectionIntervalRef = useRef<number | null>(null);
-  const isDetectingRef = useRef(false); // Prevents concurrent API calls
+  const motionDetectionIntervalRef = useRef<number | null>(null);
+  const lastImageDataRef = useRef<ImageData | null>(null);
+  const isDetectingRef = useRef(false);
 
   // --- Gemini API Key ---
   // IMPORTANT: For this to work, you MUST provide your own Google Gemini API key here.
-  const GEMINI_API_KEY = "AIzaSyDqD5KRbJk5XCMxKc_QElA18TH5hgqRVkA"; // PASTE YOUR GEMINI API KEY HERE
+  const GEMINI_API_KEY = ""; // PASTE YOUR GEMINI API KEY HERE
 
   // --- Core Logic: Camera Setup ---
   useEffect(() => {
@@ -42,26 +45,63 @@ export default function App() {
       }
     }
     setupCamera();
-
     return () => {
       const stream = videoRef.current?.srcObject as MediaStream;
       stream?.getTracks().forEach(track => track.stop());
-      if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
+      if (motionDetectionIntervalRef.current) clearInterval(motionDetectionIntervalRef.current);
     };
   }, []);
 
-  // --- Detection Loop ---
+  // --- Motion Detection Loop ---
   useEffect(() => {
-    if (status === 'READY') {
-      detectionIntervalRef.current = window.setInterval(captureAndDetect, 1500); // Detect every 1.5 seconds
-    } else {
-      if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
+    if (status === 'READY' || status === 'HOLDING') {
+      motionDetectionIntervalRef.current = window.setInterval(detectMotion, 100);
     }
     return () => {
-      if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
+      if (motionDetectionIntervalRef.current) clearInterval(motionDetectionIntervalRef.current);
     };
   }, [status]);
+  
+  // --- Trigger API call when progress reaches 100% ---
+  useEffect(() => {
+    if (holdProgress >= 100 && !isDetectingRef.current) {
+      captureAndDetect();
+      setHoldProgress(0); // Reset after triggering
+    }
+  }, [holdProgress]);
 
+  // --- Motion Detection Logic ---
+  const detectMotion = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    // Use a small canvas for performance
+    canvas.width = 64; 
+    canvas.height = 48;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (lastImageDataRef.current) {
+      let motion = 0;
+      const data = currentImageData.data;
+      const lastData = lastImageDataRef.current.data;
+      for (let i = 0; i < data.length; i += 4) {
+        motion += Math.abs(data[i] - lastData[i]);
+      }
+      
+      const motionThreshold = 150000; // Tweak this value based on camera sensitivity
+      if (motion < motionThreshold) {
+        setStatus('HOLDING');
+        setHoldProgress(prev => Math.min(100, prev + 10)); // Increase progress
+      } else {
+        setStatus('READY');
+        setHoldProgress(0); // Reset progress
+      }
+    }
+    lastImageDataRef.current = currentImageData;
+  };
 
   // --- Gemini API Call ---
   const captureAndDetect = async () => {
@@ -75,8 +115,7 @@ export default function App() {
     setError(null);
 
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
+    canvas.width = 320; canvas.height = 240;
     const ctx = canvas.getContext('2d');
     ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     const base64ImageData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
@@ -88,32 +127,34 @@ export default function App() {
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: "You are an expert in American Sign Language. Identify the single English letter (A-Z) this hand sign represents. If it is not a clear and distinct sign for a single letter, or if no hand is visible, respond with only the word 'None'." },
+              { text: "Analyze the hand sign in this image. Respond with a JSON object containing two keys: 'letter' and 'confidence'. The 'letter' should be the single English letter (A-Z) you detect. If no clear, single letter hand sign is visible, 'letter' should be 'None'. 'confidence' should be a number from 0.0 to 1.0 representing your certainty." },
               { inlineData: { mimeType: 'image/jpeg', data: base64ImageData } }
             ]
           }]
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API Error Response:", errorData);
-        throw new Error(`API Error: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
 
       const data = await response.json();
-      const text = data.candidates[0]?.content?.parts[0]?.text?.trim().toUpperCase() || 'None';
+      const responseText = data.candidates[0]?.content?.parts[0]?.text;
+      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+      const result = JSON.parse(jsonMatch ? jsonMatch[1] : responseText);
       
-      if (text && text.length === 1 && text >= 'A' && text <= 'Z') {
-        setDetectedLetter(text);
-        setTypedText(prev => prev + text);
+      const letter = result.letter?.toUpperCase() || 'None';
+      const conf = result.confidence || 0;
+
+      setConfidence(conf * 100);
+      if (letter !== 'None' && conf > 0.75) {
+        setDetectedLetter(letter);
+        setTypedText(prev => prev + letter);
       } else {
         setDetectedLetter(null);
       }
 
     } catch (err) {
       console.error("Gemini API call failed:", err);
-      setError("Failed to analyze image. Check API key and console.");
+      setError("Analysis failed. Check API key or console.");
     } finally {
       isDetectingRef.current = false;
       setStatus('READY');
@@ -139,16 +180,15 @@ export default function App() {
     }, 1500);
   };
 
-  // --- Render Functions ---
-  const renderStatusOverlay = () => {
-    let text = "", icon = <Loader className="mb-4 text-gray-400 animate-spin" size={48}/>;
+  const getStatusText = () => {
     switch (status) {
-      case 'INITIALIZING': text = "Initializing..."; break;
-      case 'NO_CAMERA': text = "Camera access denied."; icon = <Camera size={48} className="mb-4 text-red-400"/>; break;
-      default: return null;
+        case 'READY': return 'Show a hand sign';
+        case 'HOLDING': return 'Hold still...';
+        case 'DETECTING': return 'Analyzing...';
+        case 'ERROR': return <span className="text-red-400">{error}</span>;
+        default: return 'Waiting for camera...';
     }
-    return <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20"><p className="text-xl text-white">{text}</p></div>;
-  };
+  }
 
   return (
     <div className={'min-h-screen font-sans bg-gray-100 dark:bg-dark-bg text-gray-900 dark:text-gray-100 transition-colors'}>
@@ -160,12 +200,17 @@ export default function App() {
           <div className="p-4 border-t dark:border-gray-700 flex items-center space-x-2"><div className="flex-1 px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-900/80 border dark:border-gray-600 font-mono text-lg min-h-[44px]">{typedText}<span className="animate-ping">|</span></div><button onClick={() => setTypedText('')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><XCircle /></button><button onClick={sendMessage} disabled={!typedText.trim() || isTyping} className="px-4 py-2 rounded-full font-bold text-white bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400">Send</button></div>
         </div>
         <div className="relative bg-black rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg flex items-center justify-center">
-          {status !== 'READY' && status !== 'DETECTING' && renderStatusOverlay()}
+          {status === 'NO_CAMERA' && <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20"><Camera size={48} className="mb-4 text-red-400"/><p className="text-xl text-white">{error}</p></div>}
           <video ref={videoRef} muted className="w-full h-full object-cover" />
-          <div className="absolute top-4 left-4 p-3 rounded-lg bg-black/60 backdrop-blur-sm text-white font-mono text-center">
-            {status === 'DETECTING' && <Loader className="text-neon-cyan animate-spin mx-auto mb-2" />}
-            <div className={'text-6xl font-black ' + (detectedLetter ? 'text-neon-cyan tron-glow' : 'text-neon-pink')}>{detectedLetter || '_'}</div>
-            <div className="text-sm">{error ? <span className="text-red-400">{error}</span> : 'Show a hand sign'}</div>
+          <div className="absolute top-4 left-4 p-3 rounded-lg bg-black/60 backdrop-blur-sm text-white font-mono text-center flex items-center space-x-4">
+            <div className="relative w-24 h-24 flex items-center justify-center">
+                <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 36 36"><circle className="text-gray-600" strokeWidth="2" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18" /><circle className="text-neon-cyan" strokeWidth="2" strokeDasharray={`${holdProgress}, 100`} strokeLinecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18"/></svg>
+                <div className={'text-6xl font-black ' + (detectedLetter ? 'text-neon-cyan tron-glow' : 'text-neon-pink')}>{detectedLetter || '_'}</div>
+            </div>
+            <div>
+                <div className="text-lg">{getStatusText()}</div>
+                {detectedLetter && <div className="text-sm">Confidence: {confidence.toFixed(0)}%</div>}
+            </div>
           </div>
         </div>
       </main>
