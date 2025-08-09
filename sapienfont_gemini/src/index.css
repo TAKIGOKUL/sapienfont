@@ -1,0 +1,2 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+@layer utilities { .tron-glow { animation: tronGlow 2.5s ease-in-out infinite; } @keyframes tronGlow { 0%, 100% { box-shadow: 0 0 4px currentColor, 0 0 8px currentColor, 0 0 12px currentColor; } 50% { box-shadow: 0 0 8px currentColor, 0 0 16px currentColor, 0 0 24px currentColor; } } }
