@@ -92,7 +92,7 @@ For Software:
 ### Project Demo
 
 #### Video
-[Demo Video Link - YouTube/Drive]
+[https://drive.google.com/file/d/1flvktEdovbtX87apN2m5uN-rf29YPNBZ/view?usp=drivesdk]
 **Demonstration**: Shows a user typing "Hello World" and being classified as a "Existential Crisis Typist" based on their 2.3-second pause between words.
 
 #### Additional Demos
